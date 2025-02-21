@@ -67,7 +67,16 @@
             box-shadow: 0px 4px 10px rgba(255, 153, 0, 0.8);
         }
 
-        #videoList, #controls {
+        iframe {
+            width: 100%;
+            height: 60vh;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0px 4px 20px rgba(255, 255, 255, 0.2);
+            background: #000;
+        }
+
+        #videoList {
             margin-top: 20px;
         }
 
@@ -90,65 +99,66 @@
             color: #000;
             box-shadow: 0px 4px 10px rgba(0, 255, 204, 0.7);
         }
-
-        video {
-            width: 90%;
-            max-width: 800px;
-            height: auto;
-            display: none;
-            margin-top: 20px;
-            background: #000;
-            border: 2px solid #fff;
-        }
     </style>
 </head>
 <body>
     <h1>🚀 Web Video Caster 🎥</h1>
     <input type="text" id="urlInput" placeholder="Enter movie site URL">
-    <button onclick="extractVideos()">Extract Videos</button>
+    <button onclick="loadWebsite()">Go</button>
+    <iframe id="browserFrame"></iframe>
+    <button onclick="detectVideos()">🔍 Detect Videos</button>
     <div id="videoList"></div>
-    <video id="videoPlayer" controls></video>
 
     <script>
-        function extractVideos() {
+        function loadWebsite() {
             var url = document.getElementById("urlInput").value;
             if (!url.startsWith("http")) {
                 url = "https://" + url; // Ensure the URL has a proper scheme
             }
 
-            fetch(url).then(response => response.text()).then(html => {
-                let parser = new DOMParser();
-                let doc = parser.parseFromString(html, "text/html");
-                let videos = doc.querySelectorAll("video, source");
-                let videoListDiv = document.getElementById("videoList");
-                videoListDiv.innerHTML = "";
+            var frame = document.getElementById("browserFrame");
+            frame.style.display = "block";
+            frame.src = url;
+        }
 
-                if (videos.length === 0) {
-                    videoListDiv.innerHTML = "<p>No videos detected.</p>";
-                    return;
-                }
+        function detectVideos() {
+            var iframe = document.getElementById("browserFrame").contentWindow;
+            if (!iframe) {
+                alert("Load a website first!");
+                return;
+            }
 
-                videos.forEach((video, index) => {
-                    let videoUrl = video.src || video.getAttribute("src");
-                    if (videoUrl) {
-                        let btn = document.createElement("button");
-                        btn.innerHTML = `🎥 Play Video ${index + 1}`;
-                        btn.classList.add("videoButton");
-                        btn.onclick = function() { playVideo(videoUrl); };
-                        videoListDiv.appendChild(btn);
-                    }
-                });
-            }).catch(error => {
-                alert("Error extracting videos. Make sure the URL is correct and publicly accessible.");
+            try {
+                let script = iframe.document.createElement("script");
+                script.innerHTML = `
+                    let videos = document.querySelectorAll('video, source');
+                    let videoLinks = [];
+                    videos.forEach(v => { if (v.src) videoLinks.push(v.src); });
+                    window.parent.postMessage(videoLinks, '*');
+                `;
+                iframe.document.body.appendChild(script);
+            } catch (e) {
+                alert("Could not access video content. Try another site or open in a new tab.");
+            }
+        }
+
+        window.addEventListener("message", function(event) {
+            let videoListDiv = document.getElementById("videoList");
+            videoListDiv.innerHTML = "";
+
+            if (event.data.length === 0) {
+                videoListDiv.innerHTML = "<p>No videos detected.</p>";
+                return;
+            }
+
+            event.data.forEach((videoUrl, index) => {
+                let btn = document.createElement("button");
+                btn.innerHTML = `🎥 Cast Video ${index + 1}`;
+                btn.classList.add("videoButton");
+                btn.onclick = function() { castVideo(videoUrl); };
+                videoListDiv.appendChild(btn);
             });
-        }
-
-        function playVideo(url) {
-            let player = document.getElementById("videoPlayer");
-            player.src = url;
-            player.style.display = "block";
-            player.play();
-        }
+        });
 
         function castVideo(url) {
             var context = cast.framework.CastContext.getInstance();

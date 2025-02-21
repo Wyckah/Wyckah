@@ -67,15 +67,6 @@
             box-shadow: 0px 4px 10px rgba(255, 153, 0, 0.8);
         }
 
-        iframe {
-            width: 100%;
-            height: 60vh;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0px 4px 20px rgba(255, 255, 255, 0.2);
-            display: none;
-        }
-
         #videoList, #controls {
             margin-top: 20px;
         }
@@ -100,96 +91,63 @@
             box-shadow: 0px 4px 10px rgba(0, 255, 204, 0.7);
         }
 
-        #errorMessage, #openNewTab {
+        video {
+            width: 90%;
+            max-width: 800px;
+            height: auto;
             display: none;
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 10px;
-            font-weight: bold;
-        }
-
-        #errorMessage {
-            background: #ff3333;
-            color: #fff;
-        }
-
-        #openNewTab {
-            background: #ffcc00;
-            color: #000;
+            margin-top: 20px;
+            background: #000;
+            border: 2px solid #fff;
         }
     </style>
 </head>
 <body>
-    <h1>🚀 Web Video Caster 🌙</h1>
+    <h1>🚀 Web Video Caster 🎥</h1>
     <input type="text" id="urlInput" placeholder="Enter movie site URL">
-    <button onclick="loadWebsite()">Go</button>
-    <button id="openNewTab" onclick="openInNewTab()">🔗 Open in New Tab</button>
-    <div id="errorMessage">⚠️ This site blocks embedding. Click "Open in New Tab".</div>
-    <iframe id="browserFrame"></iframe>
+    <button onclick="extractVideos()">Extract Videos</button>
     <div id="videoList"></div>
+    <video id="videoPlayer" controls></video>
 
     <script>
-        function loadWebsite() {
+        function extractVideos() {
             var url = document.getElementById("urlInput").value;
             if (!url.startsWith("http")) {
                 url = "https://" + url; // Ensure the URL has a proper scheme
             }
 
-            var frame = document.getElementById("browserFrame");
-            var errorMessage = document.getElementById("errorMessage");
-            var openNewTabButton = document.getElementById("openNewTab");
+            fetch(url).then(response => response.text()).then(html => {
+                let parser = new DOMParser();
+                let doc = parser.parseFromString(html, "text/html");
+                let videos = doc.querySelectorAll("video, source");
+                let videoListDiv = document.getElementById("videoList");
+                videoListDiv.innerHTML = "";
 
-            frame.style.display = "block";
-            frame.src = url;
-
-            frame.onload = function() {
-                setTimeout(() => {
-                    try {
-                        let doc = frame.contentDocument || frame.contentWindow.document;
-                        if (!doc.body || doc.body.innerHTML.trim() === "") {
-                            throw new Error("Blocked site");
-                        }
-                        errorMessage.style.display = "none";
-                        openNewTabButton.style.display = "none";
-                        detectVideos();
-                    } catch (e) {
-                        errorMessage.style.display = "block";
-                        openNewTabButton.style.display = "block";
-                        frame.style.display = "none";
-                    }
-                }, 2000);
-            };
-        }
-
-        function openInNewTab() {
-            var url = document.getElementById("urlInput").value;
-            if (!url.startsWith("http")) {
-                url = "https://" + url;
-            }
-            window.open(url, "_blank");
-        }
-
-        function detectVideos() {
-            var iframe = document.getElementById("browserFrame").contentWindow.document;
-            var videos = iframe.getElementsByTagName('video');
-            var videoListDiv = document.getElementById("videoList");
-            videoListDiv.innerHTML = "";
-
-            if (videos.length === 0) {
-                videoListDiv.innerHTML = "<p>No videos detected.</p>";
-                return;
-            }
-            
-            for (var i = 0; i < videos.length; i++) {
-                if (videos[i].src) {
-                    var videoUrl = videos[i].src;
-                    var btn = document.createElement("button");
-                    btn.innerHTML = `🎥 Cast Video ${i + 1}`;
-                    btn.classList.add("videoButton");
-                    btn.onclick = function() { castVideo(videoUrl); };
-                    videoListDiv.appendChild(btn);
+                if (videos.length === 0) {
+                    videoListDiv.innerHTML = "<p>No videos detected.</p>";
+                    return;
                 }
-            }
+
+                videos.forEach((video, index) => {
+                    let videoUrl = video.src || video.getAttribute("src");
+                    if (videoUrl) {
+                        let btn = document.createElement("button");
+                        btn.innerHTML = `🎥 Play Video ${index + 1}`;
+                        btn.classList.add("videoButton");
+                        btn.onclick = function() { playVideo(videoUrl); };
+                        videoListDiv.appendChild(btn);
+                    }
+                });
+            }).catch(error => {
+                alert("Error extracting videos. Make sure the URL is correct and publicly accessible.");
+            });
+        }
+
+        function playVideo(url) {
+            let player = document.getElementById("videoPlayer");
+            player.src = url;
+            player.style.display = "block";
+            player.play();
         }
 
         function castVideo(url) {

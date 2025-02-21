@@ -100,14 +100,22 @@
             box-shadow: 0px 4px 10px rgba(0, 255, 204, 0.7);
         }
 
-        #openNewTab {
+        #errorMessage, #openNewTab {
             display: none;
             margin-top: 10px;
-            background: #ff0000;
-            color: #fff;
             padding: 10px;
             border-radius: 10px;
             font-weight: bold;
+        }
+
+        #errorMessage {
+            background: #ff3333;
+            color: #fff;
+        }
+
+        #openNewTab {
+            background: #ffcc00;
+            color: #000;
         }
     </style>
 </head>
@@ -116,6 +124,7 @@
     <input type="text" id="urlInput" placeholder="Enter movie site URL">
     <button onclick="loadWebsite()">Go</button>
     <button id="openNewTab" onclick="openInNewTab()">🔗 Open in New Tab</button>
+    <div id="errorMessage">⚠️ This site blocks embedding. Click "Open in New Tab".</div>
     <iframe id="browserFrame"></iframe>
     <div id="videoList"></div>
 
@@ -127,17 +136,28 @@
             }
 
             var frame = document.getElementById("browserFrame");
+            var errorMessage = document.getElementById("errorMessage");
+            var openNewTabButton = document.getElementById("openNewTab");
+
             frame.style.display = "block";
             frame.src = url;
 
             frame.onload = function() {
-                if (frame.contentDocument.body.childElementCount === 0) {
-                    document.getElementById("openNewTab").style.display = "block";
-                    frame.style.display = "none";
-                } else {
-                    document.getElementById("openNewTab").style.display = "none";
-                    setTimeout(detectVideos, 3000);
-                }
+                setTimeout(() => {
+                    try {
+                        let doc = frame.contentDocument || frame.contentWindow.document;
+                        if (!doc.body || doc.body.innerHTML.trim() === "") {
+                            throw new Error("Blocked site");
+                        }
+                        errorMessage.style.display = "none";
+                        openNewTabButton.style.display = "none";
+                        detectVideos();
+                    } catch (e) {
+                        errorMessage.style.display = "block";
+                        openNewTabButton.style.display = "block";
+                        frame.style.display = "none";
+                    }
+                }, 2000);
             };
         }
 

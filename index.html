@@ -1,0 +1,202 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Video Caster</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Orbitron', sans-serif;
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(45deg, #ff00ff, #ff9900, #00ffcc, #6600ff);
+            background-size: 400% 400%;
+            animation: gradientAnimation 10s infinite alternate;
+            color: #ffffff;
+        }
+
+        @keyframes gradientAnimation {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        h1 {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 24px;
+            text-shadow: 0px 0px 10px rgba(255, 255, 255, 0.8);
+        }
+
+        input, button {
+            margin: 10px;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 10px;
+            border: none;
+            outline: none;
+            transition: 0.3s ease-in-out;
+        }
+
+        input {
+            width: 80%;
+            max-width: 400px;
+            font-family: 'Orbitron', sans-serif;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+        }
+
+        button {
+            background: #ff00ff;
+            color: #ffffff;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0px 4px 10px rgba(255, 0, 255, 0.5);
+        }
+
+        button:hover {
+            background: #ff9900;
+            box-shadow: 0px 4px 10px rgba(255, 153, 0, 0.8);
+        }
+
+        iframe {
+            width: 100%;
+            height: 400px;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0px 4px 20px rgba(255, 255, 255, 0.4);
+        }
+
+        #videoList, #controls {
+            margin-top: 20px;
+        }
+
+        .videoButton {
+            display: block;
+            margin: 10px auto;
+            padding: 10px;
+            background: #00ffcc;
+            border-radius: 10px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: bold;
+            color: #000;
+            text-shadow: 0px 0px 5px rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .videoButton:hover {
+            background: #6600ff;
+            color: #ffffff;
+            box-shadow: 0px 4px 10px rgba(102, 0, 255, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Web Video Caster 🌌</h1>
+    <input type="text" id="urlInput" placeholder="Enter movie site URL">
+    <button onclick="loadWebsite()">Go</button>
+    <iframe id="browserFrame"></iframe>
+    <div id="videoList"></div>
+    <div id="controls" style="display:none;">
+        <button onclick="pauseVideo()">⏸ Pause</button>
+        <button onclick="resumeVideo()">▶ Resume</button>
+        <button onclick="rewindVideo()">⏪ Rewind 10s</button>
+        <button onclick="fastForwardVideo()">⏩ Fast Forward 10s</button>
+    </div>
+
+    <script>
+        let currentMediaSession = null;
+
+        function loadWebsite() {
+            var url = document.getElementById("urlInput").value;
+            var frame = document.getElementById("browserFrame");
+            frame.src = url;
+
+            frame.onload = function() {
+                setTimeout(blockAds, 1000);
+                setTimeout(detectVideos, 3000);
+            };
+        }
+
+        function blockAds() {
+            var iframe = document.getElementById("browserFrame").contentWindow.document;
+            var adSelectors = ['iframe[src*="ads"]', 'div[class*="ad"]', 'div[id*="ad"]', 'span[class*="ad"]', 'video[autoplay]', 'script[src*="ads"]'];
+            adSelectors.forEach(function(selector) {
+                var elements = iframe.querySelectorAll(selector);
+                elements.forEach(function(element) {
+                    element.remove();
+                });
+            });
+        }
+
+        function detectVideos() {
+            var iframe = document.getElementById("browserFrame").contentWindow.document;
+            var videos = iframe.getElementsByTagName('video');
+            var videoListDiv = document.getElementById("videoList");
+            videoListDiv.innerHTML = "";
+
+            if (videos.length === 0) {
+                videoListDiv.innerHTML = "<p>No videos detected.</p>";
+                return;
+            }
+            
+            for (var i = 0; i < videos.length; i++) {
+                if (videos[i].src) {
+                    var videoUrl = videos[i].src;
+                    var btn = document.createElement("button");
+                    btn.innerHTML = `🎥 Cast Video ${i + 1}`;
+                    btn.classList.add("videoButton");
+                    btn.onclick = function() { castVideo(videoUrl); };
+                    videoListDiv.appendChild(btn);
+                }
+            }
+        }
+
+        function castVideo(url) {
+            var context = cast.framework.CastContext.getInstance();
+            context.setOptions({ receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID });
+            var session = context.getCurrentSession();
+
+            if (session) {
+                var mediaInfo = new chrome.cast.media.MediaInfo(url, 'video/mp4');
+                var request = new chrome.cast.media.LoadRequest(mediaInfo);
+                session.loadMedia(request, { autoplay: true });
+
+                currentMediaSession = session.remoteMediaClient;
+                document.getElementById("controls").style.display = "block";
+            } else {
+                alert("No Chromecast device found. Please connect.");
+            }
+        }
+
+        function pauseVideo() {
+            if (currentMediaSession) {
+                currentMediaSession.pause();
+            }
+        }
+
+        function resumeVideo() {
+            if (currentMediaSession) {
+                currentMediaSession.play();
+            }
+        }
+
+        function rewindVideo() {
+            if (currentMediaSession) {
+                currentMediaSession.seek(currentMediaSession.getEstimatedTime() - 10);
+            }
+        }
+
+        function fastForwardVideo() {
+            if (currentMediaSession) {
+                currentMediaSession.seek(currentMediaSession.getEstimatedTime() + 10);
+            }
+        }
+    </script>
+</body>
+</html>
